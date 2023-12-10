@@ -2,8 +2,7 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
 
 import threading
-import time
-from copy import deepcopy
+# import time
 from game import Card, GameLoop
 
 app = Flask(__name__)
