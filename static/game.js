@@ -88,7 +88,9 @@ let prio = ''
 
 function preload(){
 	images.push(loadImage("static/images/test-image.png"))
-	zoomedImages.push(loadImage("static/images/test-image.png"))
+	for(let i = images.length; i > 0; i--){
+		zoomedImages.push(1)
+	}
 }
 
 function setup() {
@@ -128,7 +130,7 @@ function setup() {
 
 	for(let i = 0; i < images.length; i++){
 		images[i] = getImage(images[i], cardGeom.width, cardGeom.height)
-		zoomedImages[i] = getImage(zoomedImages[i], enlargeCard((zoomed), HOVERSCALE).width, enlargeCard((zoomed), HOVERSCALE).height)
+		zoomedImages[i] = getImage(images[i], enlargeCard((zoomed), HOVERSCALE).width, enlargeCard((zoomed), HOVERSCALE).height)
 	}
 
 	// for(let i = 0; i < 5; i++){
@@ -139,9 +141,9 @@ function setup() {
 
 	socket = io()
 
-	socket.on('reset-timer', ()=>{
-		resetTime(timeToPlay)
-	})
+	// socket.on('reset-timer', ()=>{
+	// 	resetTime(timeToPlay)
+	// })
 
 	socket.on("end-game", ()=>{
 		scenes['game'] = false
@@ -150,15 +152,15 @@ function setup() {
 		resetGame()
 	})
 
-	socket.on('opponent-hover', (idx)=>{
-		if(idx === -1){
-			cardHovered['opponent'] = null
-			return
-		}
-		let adjusted_index = hand['opponent'].length - (idx+1)
+	// socket.on('opponent-hover', (idx)=>{
+	// 	if(idx === -1){
+	// 		cardHovered['opponent'] = null
+	// 		return
+	// 	}
+	// 	let adjusted_index = hand['opponent'].length - (idx+1)
 
-		cardHovered['opponent'] = hand['opponent'][adjusted_index]
-	})
+	// 	cardHovered['opponent'] = hand['opponent'][adjusted_index]
+	// })
 
 	socket.on('opponent-almost-play', (idx)=>{
 		let adjusted_index = hand['opponent'].length - (idx+1)
@@ -169,12 +171,12 @@ function setup() {
 		almostPlay["opponent"] = opponentAlmostPlay
 	})
 
-	socket.on('opponent-took-back', ()=>{
-		hand['opponent'].push(almostPlay['opponent'])
-		resetTime(opponentToHandAnim)
+	// socket.on('opponent-took-back', ()=>{
+	// 	hand['opponent'].push(almostPlay['opponent'])
+	// 	resetTime(opponentToHandAnim)
 
-		almostPlay["opponent"] = null
-	})
+	// 	almostPlay["opponent"] = null
+	// })
 
 	socket.on("new-game-state", (data)=>{
 		if(data["player-drawn-cards"]){
@@ -238,7 +240,8 @@ function setup() {
 		}
 
 		if(data['opponent-played-card']){
-			play["opponent"] = almostPlay["opponent"]
+			play["opponent"] = {...cardTemplate}
+			play['opponent'].geom = {...cardGeom}
 			play["opponent"].name = data['opponent-played-card'].name
 			play['opponent'].id = data['opponent-played-card'].id
 			almostPlay["opponent"] = null
@@ -641,7 +644,7 @@ function mouseDragged(){
 
 let backToHand = null
 function mouseReleased(){
-	socket.emit('player-hover', -1)
+	// socket.emit('player-hover', -1)
 	canDragCarousel = false
 	startMouseX = 0
 	
@@ -661,7 +664,7 @@ function mouseReleased(){
 			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
 			almostPlay["player"] = draggedCard
 		
-			socket.emit('almost-play', idx)
+			// socket.emit('almost-play', idx)
 		}
 		else {
 			backToHand = draggedCard
@@ -674,7 +677,7 @@ function mouseReleased(){
 
 			almostPlay["player"] = null
 
-			socket.emit('took-back')
+			// socket.emit('took-back')
 		} else {
 			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
 		}
@@ -772,9 +775,9 @@ function renderHoveredCards(){
 		image(zoomedImages[0], enlargeCard(cardHovered['player'], HOVERSCALE).x, enlargeCard(cardHovered['player'], HOVERSCALE).y)
 	
 		let idx = hand['player'].findIndex(element => element === cardHovered['player'])
-		socket.emit('player-hover', idx)
+		// socket.emit('player-hover', idx)
 	} else {
-		socket.emit('player-hover', -1)
+		// socket.emit('player-hover', -1)
 	}
 	if(cardHovered['opponent']){
 		noStroke()

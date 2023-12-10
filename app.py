@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
 
-import threading
+# import threading
 # import time
 from game import Card, GameLoop
 
@@ -60,35 +60,35 @@ cards = {
 #       print("starting game")
 #       start_game(room)
 
-lock = threading.Lock()
-def timer_callback(room):
-	while rooms_to_timers[room] >= 0 and rooms_to_timers[room] < 30:
-		time.sleep(1)
-		with lock:
-			if room in rooms_to_timers:
-				rooms_to_timers[room] += 1
-				print(rooms_to_timers[room])
-			else:
-				break  
-	print("ending timer")
-	if room in rooms_to_timers:
-		end_game(room)
+# lock = threading.Lock()
+# def timer_callback(room):
+# 	while rooms_to_timers[room] >= 0 and rooms_to_timers[room] < 30:
+# 		time.sleep(1)
+# 		with lock:
+# 			if room in rooms_to_timers:
+# 				rooms_to_timers[room] += 1
+# 				print(rooms_to_timers[room])
+# 			else:
+# 				break  
+# 	print("ending timer")
+# 	if room in rooms_to_timers:
+# 		end_game(room)
 
-		rooms_to_timers.pop(room, None)
+# 		rooms_to_timers.pop(room, None)
 
 
-def start_timer(room):
-	with lock:
-		rooms_to_timers[room] = 0
-	thread = threading.Thread(target=timer_callback, args=(room,), daemon=True)
-	thread.start()
+# def start_timer(room):
+# 	with lock:
+# 		rooms_to_timers[room] = 0
+# 	thread = threading.Thread(target=timer_callback, args=(room,), daemon=True)
+# 	thread.start()
 
-	emit('reset-timer', room=room)
+# 	emit('reset-timer', room=room)
 
-def resetTimer(room):
-	rooms_to_timers[room] = 0
+# def resetTimer(room):
+# 	rooms_to_timers[room] = 0
 
-	emit('reset-timer', room=room)
+# 	emit('reset-timer', room=room)
 	
 
 def start_room():
@@ -195,25 +195,25 @@ def play_card(key):
 	emit_game_state(game_state, game)
 	
 
-@sio.on('almost-play')
-def almost_play(idx):
-	room = clients_to_rooms[request.sid]
+# @sio.on('almost-play')
+# def almost_play(idx):
+# 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
+# 	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
 
-@sio.on('took-back')
-def took_back():
-	room = clients_to_rooms[request.sid]
+# @sio.on('took-back')
+# def took_back():
+# 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-took-back', room=room, skip_sid=request.sid)
+# 	emit('opponent-took-back', room=room, skip_sid=request.sid)
 
-@sio.on('player-hover')
-def player_hover(idx):
-	if request.sid not in clients_to_rooms:
-		return
-	room = clients_to_rooms[request.sid]
+# @sio.on('player-hover')
+# def player_hover(idx):
+# 	if request.sid not in clients_to_rooms:
+# 		return
+# 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-hover', idx, room=room, skip_sid=request.sid)
+# 	emit('opponent-hover', idx, room=room, skip_sid=request.sid)
 
 def emit_game_state(events, game):
 	for player in game.players:
