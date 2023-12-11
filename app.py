@@ -1,21 +1,20 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
 
-# import threading
-# import time
 from game import Card, GameLoop
 
 app = Flask(__name__)
 sio = SocketIO(app, cors_allowed_origins="*")
 
+print("SERVER SUCCESSFULLY LOADED")
+
 @app.route("/")
 def load_page():
+	print('RENDERING WEBSITE')
 	return render_template("game.html")
 
 clients_to_games = {}
 clients_to_rooms = {}
-rooms_to_timers = {}
-# rooms_to_threads = {}
 rooms_to_clients = {}
 
 cards = {
@@ -30,67 +29,7 @@ cards = {
 	"nine": Card("nine"),
 	"ten": Card("ten"),
 }
-
-# @sio.on("make-room")
-# def client_make_room():
-#   print("making room")
-#   join_room("abc")
-
-#   clients_to_rooms[request.sid] = "abc"
-#   rooms_to_clients["abc"] = [request.sid]
-
-# def enough_players(room, min_players=2, max_players=2):
-#   if room not in rooms_to_clients:
-#       return False
-
-#   amount_players = len(rooms_to_clients[room])
-#   return amount_players >= min_players and amount_players <= max_players
-
-# @sio.on("join-room")
-# def client_join(room):
-#   print("attempting to join", room)
-#   if room in rooms_to_clients:
-#       print("joined", room)
-#       join_room(room)
-
-#       clients_to_rooms[request.sid] = room
-#       rooms_to_clients[room].append(request.sid)
-
-#   if enough_players(room):
-#       print("starting game")
-#       start_game(room)
-
-# lock = threading.Lock()
-# def timer_callback(room):
-# 	while rooms_to_timers[room] >= 0 and rooms_to_timers[room] < 30:
-# 		time.sleep(1)
-# 		with lock:
-# 			if room in rooms_to_timers:
-# 				rooms_to_timers[room] += 1
-# 				print(rooms_to_timers[room])
-# 			else:
-# 				break  
-# 	print("ending timer")
-# 	if room in rooms_to_timers:
-# 		end_game(room)
-
-# 		rooms_to_timers.pop(room, None)
-
-
-# def start_timer(room):
-# 	with lock:
-# 		rooms_to_timers[room] = 0
-# 	thread = threading.Thread(target=timer_callback, args=(room,), daemon=True)
-# 	thread.start()
-
-# 	emit('reset-timer', room=room)
-
-# def resetTimer(room):
-# 	rooms_to_timers[room] = 0
-
-# 	emit('reset-timer', room=room)
 	
-
 def start_room():
 	join_room("abc")
 
@@ -100,15 +39,18 @@ def start_room():
 	else:
 		rooms_to_clients["abc"] = [request.sid]
 
+	print("SETTING UP ROOM, clients_to_rooms:", clients_to_rooms, "rooms_to_clients", rooms_to_clients)
+
 	if len(rooms_to_clients["abc"]) != 2:
 		return
 
-	print("starting game")
-	# emit("start-game", room="abc")
+	print("STARTING GAME")
+	
 	start_game("abc")
 
 @sio.on("connect")
 def join_game():
+	print('CLIENT CONNECTIN TO ROOM')
 	start_room()
 
 @sio.on('enter-room')
@@ -120,35 +62,30 @@ def end_game(room):
 		return
 
 	sio.emit("end-game", room=room)
-
 	sio.close_room(room)
 
 	for player in rooms_to_clients[room]:
 		if player in clients_to_rooms:
-
 			clients_to_rooms.pop(player)
 		if player in clients_to_games:
-
 			clients_to_games.pop(player)
 
-	# rooms_to_timers.pop(room)
 	rooms_to_clients.pop(room)
 
-	
+	print('GAME ENDED')
 
 @sio.on("disconnect")
 def leave_game():
-	print("disconnect")
 	if request.sid not in clients_to_rooms:
 		return
 	room = clients_to_rooms[request.sid]
 	end_game(room)
 
+	print('CLIENT DISCONNECTED')
+
 	
 def start_game(room):
 	# HARD CODED LISTS
-	# player_one_list = [deepcopy(cards["one"])]
-	# player_two_list = [deepcopy(cards["six"])]
 	player_one_list = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
 	player_two_list = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
 
@@ -163,8 +100,6 @@ def start_game(room):
 
 	for sid in rooms_to_clients[room]:
 		clients_to_games[sid] = game
-		
-	# start_timer(room)
 
 	events = game.run()
 
@@ -172,7 +107,7 @@ def start_game(room):
 
 @sio.on('made-choices')
 def made_choices(keys):
-	print('made choices')
+	print('CLIENT MADE CHOICES')
 	player = request.sid
 	game = clients_to_games[player]
 	move = {
@@ -184,9 +119,9 @@ def made_choices(keys):
 
 @sio.on("normal-play")
 def play_card(key):
+	print('CLIENT PLAYING CARD')
 	player = request.sid
 	game = clients_to_games[player]
-	# card = get_card(key, player)
 	move = {
 		"player": player,
 		"normal-play": key
@@ -197,6 +132,7 @@ def play_card(key):
 
 @sio.on('almost-play')
 def almost_play(idx):
+	print('CLIENT ALMOST PLAY')
 	room = clients_to_rooms[request.sid]
 
 	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
@@ -270,9 +206,38 @@ def emit_game_state(events, game):
 
 		emit("new-game-state", game_state, room=player)
 
-	
+	print('EMMITNG GAME STATE')
 
 if __name__ == "__main__":
 	app.run(debug=True)
+
+# @sio.on("make-room")
+# def client_make_room():
+#   print("making room")
+#   join_room("abc")
+
+#   clients_to_rooms[request.sid] = "abc"
+#   rooms_to_clients["abc"] = [request.sid]
+
+# def enough_players(room, min_players=2, max_players=2):
+#   if room not in rooms_to_clients:
+#       return False
+
+#   amount_players = len(rooms_to_clients[room])
+#   return amount_players >= min_players and amount_players <= max_players
+
+# @sio.on("join-room")
+# def client_join(room):
+#   print("attempting to join", room)
+#   if room in rooms_to_clients:
+#       print("joined", room)
+#       join_room(room)
+
+#       clients_to_rooms[request.sid] = room
+#       rooms_to_clients[room].append(request.sid)
+
+#   if enough_players(room):
+#       print("starting game")
+#       start_game(room)
 
 
