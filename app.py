@@ -195,11 +195,11 @@ def play_card(key):
 	emit_game_state(game_state, game)
 	
 
-# @sio.on('almost-play')
-# def almost_play(idx):
-# 	room = clients_to_rooms[request.sid]
+@sio.on('almost-play')
+def almost_play(idx):
+	room = clients_to_rooms[request.sid]
 
-# 	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
+	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
 
 # @sio.on('took-back')
 # def took_back():

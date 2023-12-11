@@ -240,8 +240,7 @@ function setup() {
 		}
 
 		if(data['opponent-played-card']){
-			play["opponent"] = {...cardTemplate}
-			play['opponent'].geom = {...cardGeom}
+			play["opponent"] = almostPlay["opponent"]
 			play["opponent"].name = data['opponent-played-card'].name
 			play['opponent'].id = data['opponent-played-card'].id
 			almostPlay["opponent"] = null
@@ -664,7 +663,7 @@ function mouseReleased(){
 			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
 			almostPlay["player"] = draggedCard
 		
-			// socket.emit('almost-play', idx)
+			socket.emit('almost-play', idx)
 		}
 		else {
 			backToHand = draggedCard
