@@ -140,11 +140,7 @@ function setup() {
 	// }
 
 	socket = io()
-
-	// socket.on('reset-timer', ()=>{
-	// 	resetTime(timeToPlay)
-	// })
-
+	
 	socket.on("end-game", ()=>{
 		scenes['game'] = false
 		scenes['end'] = true	
@@ -152,15 +148,15 @@ function setup() {
 		resetGame()
 	})
 
-	// socket.on('opponent-hover', (idx)=>{
-	// 	if(idx === -1){
-	// 		cardHovered['opponent'] = null
-	// 		return
-	// 	}
-	// 	let adjusted_index = hand['opponent'].length - (idx+1)
+	socket.on('opponent-hover', (idx)=>{
+		if(idx === -1){
+			cardHovered['opponent'] = null
+			return
+		}
+		let adjusted_index = hand['opponent'].length - (idx+1)
 
-	// 	cardHovered['opponent'] = hand['opponent'][adjusted_index]
-	// })
+		cardHovered['opponent'] = hand['opponent'][adjusted_index]
+	})
 
 	socket.on('opponent-almost-play', (idx)=>{
 		let adjusted_index = hand['opponent'].length - (idx+1)
@@ -171,12 +167,12 @@ function setup() {
 		almostPlay["opponent"] = opponentAlmostPlay
 	})
 
-	// socket.on('opponent-took-back', ()=>{
-	// 	hand['opponent'].push(almostPlay['opponent'])
-	// 	resetTime(opponentToHandAnim)
+	socket.on('opponent-took-back', ()=>{
+		hand['opponent'].push(almostPlay['opponent'])
+		resetTime(opponentToHandAnim)
 
-	// 	almostPlay["opponent"] = null
-	// })
+		almostPlay["opponent"] = null
+	})
 
 	socket.on("new-game-state", (data)=>{
 		if(data["player-drawn-cards"]){
@@ -643,7 +639,7 @@ function mouseDragged(){
 
 let backToHand = null
 function mouseReleased(){
-	// socket.emit('player-hover', -1)
+	socket.emit('player-hover', -1)
 	canDragCarousel = false
 	startMouseX = 0
 	
@@ -676,7 +672,7 @@ function mouseReleased(){
 
 			almostPlay["player"] = null
 
-			// socket.emit('took-back')
+			socket.emit('took-back')
 		} else {
 			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
 		}
@@ -774,9 +770,9 @@ function renderHoveredCards(){
 		image(zoomedImages[0], enlargeCard(cardHovered['player'], HOVERSCALE).x, enlargeCard(cardHovered['player'], HOVERSCALE).y)
 	
 		let idx = hand['player'].findIndex(element => element === cardHovered['player'])
-		// socket.emit('player-hover', idx)
+		socket.emit('player-hover', idx)
 	} else {
-		// socket.emit('player-hover', -1)
+		socket.emit('player-hover', -1)
 	}
 	if(cardHovered['opponent']){
 		noStroke()

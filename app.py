@@ -137,19 +137,19 @@ def almost_play(idx):
 
 	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
 
-# @sio.on('took-back')
-# def took_back():
-# 	room = clients_to_rooms[request.sid]
+@sio.on('took-back')
+def took_back():
+	room = clients_to_rooms[request.sid]
 
-# 	emit('opponent-took-back', room=room, skip_sid=request.sid)
+	emit('opponent-took-back', room=room, skip_sid=request.sid)
 
-# @sio.on('player-hover')
-# def player_hover(idx):
-# 	if request.sid not in clients_to_rooms:
-# 		return
-# 	room = clients_to_rooms[request.sid]
+@sio.on('player-hover')
+def player_hover(idx):
+	if request.sid not in clients_to_rooms:
+		return
+	room = clients_to_rooms[request.sid]
 
-# 	emit('opponent-hover', idx, room=room, skip_sid=request.sid)
+	emit('opponent-hover', idx, room=room, skip_sid=request.sid)
 
 def emit_game_state(events, game):
 	for player in game.players:
