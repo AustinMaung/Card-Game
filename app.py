@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
-
+import random
 from game import Card, GameLoop
 
 app = Flask(__name__)
@@ -51,7 +51,8 @@ def enter_room(key):
 
 @sio.on('create-room')
 def create_room():
-	key = '9999'
+	key = ''.join(random.choice('0123456789') for _ in range(4))
+
 	join_room(key)
 
 	clients_to_rooms[request.sid] = key
@@ -159,7 +160,7 @@ def took_back():
 
 	for client in rooms_to_clients[room]:
 		if client != request.sid:
-			emit('opponent-took-back', idx, room=client)
+			emit('opponent-took-back', room=client)
 
 @sio.on('player-hover')
 def player_hover(idx):
