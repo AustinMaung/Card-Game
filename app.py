@@ -4,13 +4,11 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, close_room
 from game import Card, GameLoop
 
 app = Flask(__name__)
-sio = SocketIO(app, cors_allowed_origins="*")
-
-print("SERVER SUCCESSFULLY LOADED")
+sio = SocketIO(app, cors_allowed_origins=['http://localhost:5000', 'https://abyss-ascendant.onrender.com'])
 
 @app.route("/")
 def load_page():
-	print('RENDERING WEBSITE')
+	# print('RENDERING WEBSITE')
 	return render_template("game.html")
 
 clients_to_games = {}
@@ -29,60 +27,79 @@ cards = {
 	"nine": Card("nine"),
 	"ten": Card("ten"),
 }
-	
-def start_room():
-	join_room("abc")
 
-	clients_to_rooms[request.sid] = "abc"
-	if "abc" in rooms_to_clients:
-		rooms_to_clients["abc"].append(request.sid)
-	else:
-		rooms_to_clients["abc"] = [request.sid]
-
-	print("SETTING UP ROOM, clients_to_rooms:", clients_to_rooms, "rooms_to_clients", rooms_to_clients)
-
-	if len(rooms_to_clients["abc"]) != 2:
-		return
-
-	print("STARTING GAME")
-	
-	start_game("abc")
-
-@sio.on("connect")
-def join_game():
-	print('CLIENT CONNECTIN TO ROOM')
-	start_room()
+# @sio.on("connect")
+# def join_game():
+# 	start_room()
 
 @sio.on('enter-room')
-def enter_room():
-	start_room()
+def enter_room(key):
+	if key not in rooms_to_clients:
+		sio.emit('join-room-failure', room=request.sid)
+		return
+
+	sio.emit('join-room-success', key, room=request.sid)
+	rooms_to_clients[key].append(request.sid)
+	clients_to_rooms[request.sid] = key
+
+	if len(rooms_to_clients[key]) != 2:
+		sio.emit('join-room-failure', room=request.sid)
+		return
+
+	sio.emit('start-game')
+	start_game(key)
+
+@sio.on('create-room')
+def create_room():
+	key = '9999'
+	join_room(key)
+
+	clients_to_rooms[request.sid] = key
+	if key in rooms_to_clients:
+		sio.emit('join-room-failure', room=request.sid)
+	else:
+		rooms_to_clients[key] = [request.sid]
+		
+		sio.emit('join-room-success', key, room=request.sid)
+
+def exit_room(client):
+	sio.emit('join-room-failure', room=client)
+	if client not in clients_to_rooms:
+		return
+
+	room = clients_to_rooms[client]
+	rooms_to_clients[room].remove(client)
+	clients_to_rooms.pop(client)
+
+	if len(rooms_to_clients[room]) == 0:
+		rooms_to_clients.pop(room)
+		# sio.close_room(room)
+
+@sio.on('exit-room')
+def exit_room_event():
+	exit_room(request.sid)
 
 def end_game(room):
 	if room not in rooms_to_clients:
 		return
 
-	sio.emit("end-game", room=room)
-	sio.close_room(room)
+	for client in clients_to_rooms:
+		sio.emit("end-game", room=client)
 
 	for player in rooms_to_clients[room]:
-		if player in clients_to_rooms:
-			clients_to_rooms.pop(player)
 		if player in clients_to_games:
 			clients_to_games.pop(player)
-
-	rooms_to_clients.pop(room)
-
-	print('GAME ENDED')
 
 @sio.on("disconnect")
 def leave_game():
 	if request.sid not in clients_to_rooms:
 		return
 	room = clients_to_rooms[request.sid]
-	end_game(room)
 
-	print('CLIENT DISCONNECTED')
+	exit_room(request.sid)
 
+	if request.sid in clients_to_games:
+		end_game(room)
 	
 def start_game(room):
 	# HARD CODED LISTS
@@ -107,7 +124,6 @@ def start_game(room):
 
 @sio.on('made-choices')
 def made_choices(keys):
-	print('CLIENT MADE CHOICES')
 	player = request.sid
 	game = clients_to_games[player]
 	move = {
@@ -119,7 +135,6 @@ def made_choices(keys):
 
 @sio.on("normal-play")
 def play_card(key):
-	print('CLIENT PLAYING CARD')
 	player = request.sid
 	game = clients_to_games[player]
 	move = {
@@ -132,16 +147,19 @@ def play_card(key):
 
 @sio.on('almost-play')
 def almost_play(idx):
-	print('CLIENT ALMOST PLAY')
 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-almost-play', idx, room=room, skip_sid=request.sid)
+	for client in rooms_to_clients[room]:
+		if client != request.sid:
+			emit('opponent-almost-play', idx, room=client)
 
 @sio.on('took-back')
 def took_back():
 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-took-back', room=room, skip_sid=request.sid)
+	for client in rooms_to_clients[room]:
+		if client != request.sid:
+			emit('opponent-took-back', idx, room=client)
 
 @sio.on('player-hover')
 def player_hover(idx):
@@ -149,7 +167,9 @@ def player_hover(idx):
 		return
 	room = clients_to_rooms[request.sid]
 
-	emit('opponent-hover', idx, room=room, skip_sid=request.sid)
+	for client in rooms_to_clients[room]:
+		if client != request.sid:
+			emit('opponent-hover', idx, room=client)
 
 def emit_game_state(events, game):
 	for player in game.players:
@@ -189,10 +209,7 @@ def emit_game_state(events, game):
 			game_state['player-played-card'] = {'name': game.get_card(player_played_card).name, 'id': player_played_card}
 			opponent_played_card = list(set(opponent_card_ids).intersection(events['played-cards']))[0]
 			game_state['opponent-played-card'] = {'name': game.get_card(opponent_played_card).name, 'id': opponent_played_card}
-			# resetTimer(clients_to_rooms[player])
-
 		if "dropped-cards" in events:
-			print('dropped', list(set(player_card_ids).intersection(events["dropped-cards"])))
 			game_state["player-dropped-cards"] = list(set(player_card_ids).intersection(events["dropped-cards"]))
 			game_state["opponent-dropped-cards"] = list(set(opponent_card_ids).intersection(events["dropped-cards"]))
 
@@ -206,18 +223,16 @@ def emit_game_state(events, game):
 
 		emit("new-game-state", game_state, room=player)
 
-	print('EMMITNG GAME STATE')
-
 if __name__ == "__main__":
 	app.run(debug=True)
 
 # @sio.on("make-room")
 # def client_make_room():
 #   print("making room")
-#   join_room("abc")
+#   join_room(key)
 
-#   clients_to_rooms[request.sid] = "abc"
-#   rooms_to_clients["abc"] = [request.sid]
+#   clients_to_rooms[request.sid] = key
+#   rooms_to_clients[key] = [request.sid]
 
 # def enough_players(room, min_players=2, max_players=2):
 #   if room not in rooms_to_clients:

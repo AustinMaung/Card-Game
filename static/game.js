@@ -2,7 +2,8 @@ let socket;
 let game_state;
 
 let scenes = {
-	"game": true,
+	'room': true,
+	"game": false,
 	"end": false
 }
 
@@ -11,17 +12,22 @@ let canvasHeight = 0
 let leftEdge = 0
 let rightEdge = 0
 let MAXGAMEWIDTH = 950
+let MAXGAMEHEIGHT = 600
 let gameWidth = 0
+let gameHeight = 0
+let topEdge = 0
+let botEdge = 0
 let HOVERSCALE = 2
 let BORDER = 3
 let CORNER = 5
 let CARDMARGIN = 3
+let CARDWIDTH = 80
+let CARDHEIGHT = (CARDWIDTH*3)/2
 
 let sectionOne = initGeom()
 let sectionTwo = initGeom()
 let sectionThree = initGeom()
 let sectionFour = initGeom()
-let cardGeom = initGeom()
 
 let timeTemplate = {
 	"value": 0,
@@ -32,7 +38,6 @@ let playerToHandAnim = initTime(300)
 let opponentToHandAnim = initTime(300)
 let toPlayAnim = initTime(300)
 let toDropAnim = initTime(200)
-let timeToPlay = initTime(30000)
 
 let cardTemplate = {
 	"name": "",
@@ -54,6 +59,7 @@ let almostOpponentPlayZone = null
 let playCardButton = null
 let selectCardButton = null
 let backToCarousel = null
+let htmlElemContainer;
 
 //RELOAD THESE ON NEW GAME
 let hand = {
@@ -94,54 +100,21 @@ function preload(){
 }
 
 function setup() {
-	canvasWidth = windowWidth//600
-	canvasHeight = windowHeight//400
-	createCanvas(canvasWidth, canvasHeight)
-
-	sectionOne = setGeom(CARDMARGIN, CARDMARGIN+BORDER, canvasWidth, canvasHeight * 0.25 )
-	sectionTwo = setGeom(0, canvasHeight * 0.25, canvasWidth, canvasHeight * 0.25)
-	sectionThree = setGeom(0, canvasHeight * 0.5, canvasWidth, canvasHeight * 0.25)
-	sectionFour = setGeom(0, canvasHeight * 0.75, canvasWidth, canvasHeight * 0.25)
-
-	gameWidth = min(canvasWidth, MAXGAMEWIDTH)
-
-	let cardWidth = gameWidth == MAXGAMEWIDTH ? 80 : 50
-	let cardHeight = (cardWidth*3)/2
-
-	cardGeom = setGeom(cardGeom.x, cardGeom.y, cardWidth, cardHeight)
-
-	rightEdge = ((canvasWidth-gameWidth+1)/2 + gameWidth)-cardWidth-CARDMARGIN-BORDER
-	leftEdge = (canvasWidth-gameWidth)/2+CARDMARGIN+BORDER
-
-	playCardButton = setGeom(rightEdge, sectionTwo.y+(cardHeight/4), cardWidth, cardHeight/2)
-	let selectWidth = playCardButton.width + (playCardButton.width/2)
-	let selectHeight = playCardButton.height
-	selectCardButton = setGeom(canvasWidth/2 - (selectWidth/2), sectionFour.y+CARDMARGIN, selectWidth, selectHeight)
-
-	almostPlayerPlayZone = setGeom(canvasWidth/2, sectionThree.y, cardGeom.width, cardGeom.height)
-	almostOpponentPlayZone = setGeom(canvasWidth/2, sectionTwo.y, cardGeom.width, cardGeom.height)
-	playerDropZone = setGeom(rightEdge, sectionThree.y, cardGeom.width, cardGeom.height)
-	opponentDropZone = setGeom(leftEdge, sectionTwo.y, cardGeom.width, cardGeom.height)
-	playerPlayZone = setGeom(canvasWidth/2-(cardGeom.width/2), sectionThree.y, cardGeom.width, cardGeom.height)
-	opponentPlayZone = setGeom(canvasWidth/2-(cardGeom.width/2), sectionTwo.y, cardGeom.width, cardGeom.height)
+	createCanvas(windowWidth, windowHeight)
+	setDataDerivedFromScreenSize()
 
 	let zoomed = {...cardTemplate}
-	zoomed.curr = setGeom(rightEdge, sectionFour.y, cardGeom.width, cardGeom.height)
+	zoomed.curr = setGeom(rightEdge, sectionFour-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 
 	for(let i = 0; i < images.length; i++){
-		images[i] = getImage(images[i], cardGeom.width, cardGeom.height)
+		images[i] = getImage(images[i], CARDWIDTH, CARDHEIGHT)
 		zoomedImages[i] = getImage(images[i], enlargeCard((zoomed), HOVERSCALE).width, enlargeCard((zoomed), HOVERSCALE).height)
 	}
-
-	// for(let i = 0; i < 5; i++){
-	// 	let test = {...cardTemplate}
-	// 	test.curr = {...cardGeom}
-	// 	carousel.push(test)
-	// }
 
 	socket = io()
 	
 	socket.on("end-game", ()=>{
+		scenes['room'] = false
 		scenes['game'] = false
 		scenes['end'] = true	
 
@@ -184,7 +157,7 @@ function setup() {
 				newCard.owner = 'player'
 				newCard.location = 'hand'
 				newCard.color = random([color('red'),color('green'),color('blue')])
-				newCard.curr = setGeom(rightEdge, sectionFour.y, cardGeom.width, cardGeom.height)
+				newCard.curr = setGeom(rightEdge, sectionThree-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 				newCard.anim = playerToHandAnim
 				hand["player"].push(newCard)
 			}
@@ -196,7 +169,7 @@ function setup() {
 			for(let i = 0; i < amountAdded; i++){
 				let newCard = {...cardTemplate}
 				newCard.color = random([color('red'),color('green'),color('blue')])
-				newCard.curr = setGeom(leftEdge, sectionOne.y, cardGeom.width, cardGeom.height)
+				newCard.curr = setGeom(leftEdge, sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 				newCard.anim = playerToHandAnim
 				hand["opponent"].push(newCard)
 			}
@@ -267,41 +240,144 @@ function setup() {
 
 		prio = data['prio']
 	})
+
+	let joinRoomInput = createInput()
+	let joinRoomButton = createButton('Join Room')
+	let createRoomButton = createButton('Create Room')
+	let createRoomDiv = createDiv()
+	createRoomDiv.child(createRoomButton)
+	let roomKeyText = createP('Room Key:')
+	roomKeyText.style('color', 'white')
+	let goBackButton = createButton("Go Back")
+	let goBackDiv = createDiv()
+	goBackDiv.child(roomKeyText)
+	goBackDiv.child(goBackButton)
+	goBackDiv.style('display', 'none')
+
+	htmlElemContainer = select('#app-container')
+	let joinRoomContainer = createDiv()
+	joinRoomContainer.child(joinRoomInput)
+	joinRoomContainer.child(joinRoomButton)
+	htmlElemContainer.child(joinRoomContainer)
+	htmlElemContainer.child(createRoomDiv)
+	htmlElemContainer.child(goBackDiv)
+
+	htmlElemContainer.style('position', 'absolute')
+	htmlElemContainer.style('width', '100%')
+	htmlElemContainer.style('height', '100%')
+	htmlElemContainer.style('display', 'flex')
+	htmlElemContainer.style('flex-wrap', 'wrap')
+	htmlElemContainer.style('justify-content', 'space-around')
+	htmlElemContainer.style('align-items', 'center')
+
+	joinRoomButton.mousePressed(()=>{
+		if(joinRoomInput.value() === ''){
+			return
+		}
+		socket.emit('enter-room', joinRoomInput.value())
+		joinRoomInput.elt.value = ''
+	})
+
+	joinRoomInput.elt.addEventListener('keydown', ()=>{
+		if (event.keyCode === 13) {
+			if(joinRoomInput.value() === ''){
+				return
+			}
+			socket.emit('enter-room', joinRoomInput.value())
+			joinRoomInput.elt.value = ''
+		}
+	})
+
+	createRoomButton.mousePressed(()=>{
+		socket.emit('create-room')
+	})
+
+	goBackButton.mousePressed(()=>{
+		socket.emit('exit-room')
+	})
+
+	socket.on('join-room-success', (roomKey)=>{
+		createRoomDiv.style('display', 'none')
+		joinRoomContainer.style('display', 'none')
+
+		goBackDiv.style('display', 'flex')
+		goBackDiv.style('flex-direction', 'column')
+		goBackDiv.style('align-items', 'center')
+
+		roomKeyText.elt.innerText = 'Room Key: ' + roomKey
+	})
+
+	socket.on('join-room-failure', ()=>{
+		goBackDiv.style('display', 'none')
+
+		createRoomDiv.style('display', 'block')
+		joinRoomContainer.style('display', 'block')
+	})
+
+	socket.on('start-game', ()=>{
+		htmlElemContainer.style('display', 'none')
+
+		scenes['room'] = false
+		scenes['game'] = true
+		scenes['end'] = false	
+	})
+}
+
+function windowResized() {
+	resizeCanvas(windowWidth, windowHeight);
+	setDataDerivedFromScreenSize()	
+}
+
+function setDataDerivedFromScreenSize() {
+	canvasWidth = windowWidth
+	canvasHeight = windowHeight
+
+	gameWidth = min(canvasWidth, MAXGAMEWIDTH)
+	gameHeight = min(canvasHeight, MAXGAMEHEIGHT)
+
+	topEdge = (canvasHeight-gameHeight)/2
+	botEdge = (canvasHeight-gameHeight)/2 + gameHeight
+
+	let halfSectionHeight = 0.25*gameHeight/2
+	sectionOne = halfSectionHeight + topEdge
+	sectionTwo = 0.25*gameHeight + halfSectionHeight + topEdge
+	sectionThree = 0.5*gameHeight + halfSectionHeight + topEdge
+	sectionFour = 0.75*gameHeight + halfSectionHeight + topEdge
+
+	rightEdge = ((canvasWidth-gameWidth+1)/2 + gameWidth)-CARDWIDTH-CARDMARGIN-BORDER
+	leftEdge = (canvasWidth-gameWidth)/2+CARDMARGIN+BORDER
+
+	playCardButton = setGeom((canvasWidth/2)-(CARDWIDTH/2), sectionOne-CARDHEIGHT/4,
+		CARDWIDTH, CARDHEIGHT/2)
+	let selectWidth = playCardButton.width + (playCardButton.width/2)
+	let selectHeight = playCardButton.height
+	selectCardButton = setGeom(canvasWidth/2 - (selectWidth/2), sectionFour-selectHeight/2, selectWidth, selectHeight)
+
+	almostPlayerPlayZone = setGeom(canvasWidth/2, sectionThree-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+	almostOpponentPlayZone = setGeom(canvasWidth/2, sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+	playerDropZone = setGeom(rightEdge, sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+	opponentDropZone = setGeom(leftEdge, sectionThree-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+	playerPlayZone = setGeom(canvasWidth/2-(CARDWIDTH/2), sectionThree-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+	opponentPlayZone = setGeom(canvasWidth/2-(CARDWIDTH/2), sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 }
 
 function draw() {
+	background(0)
 	if(scenes["game"]){
-		background(0)
 
 		fill(color("white"))
 		// //player deck
-		rect(rightEdge, sectionFour.y, cardGeom.width, cardGeom.height)
+		rect(rightEdge, sectionThree-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 		// //opponent deck
-		rect(leftEdge, sectionOne.y, cardGeom.width, cardGeom.height)
-
-		//ready button
-		let lockedInColor = lockedIn ? "red" : "white"
-
-		noFill()
-		stroke(lockedInColor)
-		rect(playCardButton.x, playCardButton.y, playCardButton.width, playCardButton.height)
-
-		// let displayTime = (30 - Math.floor(timeToPlay.value/1000)).toString()
-		let displayTime = 'play card'
-		let lockedInText = lockedIn ? "locked in" : displayTime
-
-		textSize(getFittedTextHeight(lockedInText, playCardButton.width, playCardButton.height))
-		fill(lockedInColor)
-		textAlign(CENTER, CENTER);
-		text(lockedInText, playCardButton.x + (playCardButton.width/2), playCardButton.y + (playCardButton.height/2))
-
-		noStroke()
+		rect(leftEdge, sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 
 		if(!draggedCard){
-			amountInHand["player"] = animateCardToHand(hand["player"], sectionFour, amountInHand["player"], playerToHandAnim)
+			amountInHand["player"] = animateCardToHand(hand["player"], 
+				sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
 		}
 		
-		amountInHand["opponent"] = animateCardToHand(hand["opponent"], sectionOne, amountInHand["opponent"], opponentToHandAnim)
+		amountInHand["opponent"] = animateCardToHand(hand["opponent"], 
+			sectionOne-CARDHEIGHT/2, amountInHand["opponent"], opponentToHandAnim)
 		renderAllCards()
 
 		drawCarousel()
@@ -318,8 +394,24 @@ function draw() {
 		if(didTimeFinish(toDropAnim)){
 			updateTime(toPlayAnim)
 		}
-		
-		updateTime(timeToPlay)
+
+		//ready button
+		if(almostPlay['player']){
+			let lockedInColor = lockedIn ? "orange" : "yellow"
+			fill(color('purple'))
+			stroke(lockedInColor)
+			rect(playCardButton.x-CARDMARGIN*2, playCardButton.y-CARDMARGIN*2,
+				playCardButton.width+CARDMARGIN*2, playCardButton.height+CARDMARGIN*2, 10)
+
+			let lockedInText = lockedIn ? "locked in" : 'play card'
+			textSize(getFittedTextHeight(lockedInText, playCardButton.width, playCardButton.height))
+
+			fill(lockedInColor)
+			textAlign(CENTER, CENTER);
+			text(lockedInText, playCardButton.x + (playCardButton.width/2)-CARDMARGIN,
+				playCardButton.y + (playCardButton.height/2)-CARDMARGIN)
+			noStroke()
+		}
 
 		//select button
 		if(enableSelectButton){
@@ -336,22 +428,16 @@ function draw() {
 			text(selectCardButtonText, canvasWidth/2, selectCardButton.y + (selectCardButton.height/2))
 		}
 
-		push()
-		drawingContext.shadowColor = color('yellow');
-		drawingContext.shadowBlur = 32
-		drawingContext.shadowOffsetX = 2 * width;
-
-		noFill()
-		strokeWeight(50);
-		if(prio == 'player'){
-			line(-(width/2) - (gameWidth/2), canvasHeight,
-				-(width/2) + (gameWidth/2), canvasHeight)
-		} else if(prio == 'opponent'){
-			line(-(width/2) - (gameWidth/2), 1,
-				-(width/2) + (gameWidth/2), 1)
+		if(prio != ""){
+			noStroke()
+			fill(color(255,255,0,50))
+			if(prio == 'player'){
+				rect(0, canvasHeight-40, canvasWidth, 50, )
+			} else if(prio == 'opponent'){
+				rect(0, -10, canvasWidth, 50)
+			}
+			stroke(1)
 		}
-		pop()
-
 	} else if(scenes["end"]){
 		background(0)
 
@@ -392,12 +478,11 @@ function drawCarousel(){
 		return
 	}
 	let enlargedGeom = enlargeCard(carousel[0], HOVERSCALE)
-	let totalLength = carousel.length * cardGeom.width
+	let totalLength = carousel.length * CARDWIDTH
 
 	let spaceTakenByEnlarged = carousel.length * enlargedGeom.width
 
 	let scrollableMax = ((carousel.length*enlargedGeom.width) + ((carousel.length-1)*enlargedGeom.width/3))
-	// mouseWheelMax = (carousel.length*(enlargedGeom.width+(enlargedGeom.width/3)))-enlargedGeom.width
 	mouseWheelMax = scrollableMax
 
 	let extraSpace = (gameWidth-totalLength)/(carousel.length+1)
@@ -413,9 +498,8 @@ function drawCarousel(){
 			card.target = {...card.curr}
 		})
 	} else {
-		// let totalLength = ((carousel.length*enlargedGeom.width) + ((carousel.length-1)*enlargedGeom.width/3))
 		let leftSide = (canvasWidth/2) - (scrollableMax/2)
-		let centerSmallInEnlarge = ((enlargedGeom.width-cardGeom.width)/2)
+		let centerSmallInEnlarge = ((enlargedGeom.width-CARDWIDTH)/2)
 
 		carousel.forEach((card, i)=>{
 			let baseX = leftSide + i*enlargedGeom.width + (i*enlargedGeom.width/3) + centerSmallInEnlarge
@@ -427,6 +511,7 @@ function drawCarousel(){
 		recordMouseWheel = true
 	}
 	carousel.forEach((card)=>{
+		//Card
 		noStroke()
 		fill(color(card.borderColor))
 		rect(enlargeCard(card, HOVERSCALE).x-BORDER, enlargeCard(card, 
@@ -434,6 +519,7 @@ function drawCarousel(){
 			enlargeCard(card, HOVERSCALE).height+2*BORDER, CORNER)
 		image(zoomedImages[0], enlargeCard(card, HOVERSCALE).x, enlargeCard(card, HOVERSCALE).y)
 
+		//Extra Info
 		let ownerAndLocationText = card.owner + ', ' + card.location
 		textSize(getFittedTextHeight(ownerAndLocationText, (enlargeCard(card, HOVERSCALE).width+2*BORDER),
 				(enlargeCard(card, HOVERSCALE).width+2*BORDER)/7))
@@ -443,7 +529,7 @@ function drawCarousel(){
 		text(ownerAndLocationText, enlargeCard(card, HOVERSCALE).x-BORDER + (enlargeCard(card, HOVERSCALE).width+2*BORDER)/2,
 			enlargeCard(card, HOVERSCALE).y-BORDER)
 
-
+		//Clicked Icons
 		let indexOfClickedCard = cardsClicked.indexOf(card)
 		if(indexOfClickedCard != -1){
 			fill(color('purple'))
@@ -581,10 +667,17 @@ function mouseClicked(){
 			mouseY > canvasHeight/2 - (buttonHeight/2) && 
 			mouseY < canvasHeight/2 + (buttonHeight/2))
 		{
-			socket.emit("enter-room")
+			scenes['room'] = true
+			scenes['game'] = false
+			scenes['end'] = false	
 
-			scenes["game"] = true
-			scenes["end"] = false
+			htmlElemContainer.style('position', 'absolute')
+			htmlElemContainer.style('width', '100%')
+			htmlElemContainer.style('height', '100%')
+			htmlElemContainer.style('display', 'flex')
+			htmlElemContainer.style('flex-wrap', 'wrap')
+			htmlElemContainer.style('justify-content', 'space-around')
+			htmlElemContainer.style('align-items', 'center')
 		}
 	}
 }
@@ -606,7 +699,7 @@ function mousePressed(){
 				}
 			})
 		} else if(almostPlay['player']){
-			if(almostPlay['player'] && mouseX > almostPlay['player'].curr.x && 
+			if(mouseX > almostPlay['player'].curr.x && 
 				mouseX < almostPlay['player'].curr.x + almostPlay['player'].curr.width && 
 				mouseY > almostPlay['player'].curr.y && 
 				mouseY < almostPlay['player'].curr.y + almostPlay['player'].curr.height)
@@ -623,8 +716,8 @@ function mousePressed(){
 
 function mouseDragged(){
 	if(draggedCard){
-		draggedCard.curr.x = mouseX - (cardGeom.width/2)
-		draggedCard.curr.y = mouseY - (cardGeom.height/2)
+		draggedCard.curr.x = mouseX - (CARDWIDTH/2)
+		draggedCard.curr.y = mouseY - (CARDHEIGHT/2)
 
 		draggedCard.target = {...draggedCard.curr}
 	} else if(canDragCarousel){
@@ -643,14 +736,13 @@ function mouseReleased(){
 	canDragCarousel = false
 	startMouseX = 0
 	
-
 	if(!draggedCard){
 		return
 	}
 
 	backToHand = null
 	if(hand["player"].includes(draggedCard) && !almostPlay["player"]){
-		if(mouseY < (sectionThree.y + cardGeom.height) ){
+		if(mouseY < sectionThree){
 			let idx = hand['player'].findIndex(element => element === draggedCard)
 			hand['player'].splice(idx, 1)
 
@@ -666,7 +758,7 @@ function mouseReleased(){
 			resetTime(playerToHandAnim)	
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
-		if(mouseY > sectionFour.y){
+		if(mouseY > sectionThree + CARDHEIGHT/2){
 			hand['player'].push(draggedCard)
 			resetTime(playerToHandAnim)
 
@@ -704,9 +796,9 @@ function setGeom(x, y, w, h) {
 function findHandGeom(handCount, section) {
 	let handGeom = initGeom()
 
-	handGeom.y = section.y
-	handGeom.width = handCount * cardGeom.width + handCount * (BORDER+CARDMARGIN)
-	handGeom.height = cardGeom.height
+	handGeom.y = section
+	handGeom.width = handCount * CARDWIDTH + handCount * (BORDER+CARDMARGIN)
+	handGeom.height = CARDHEIGHT
 
 	handGeom.x = Math.floor((canvasWidth - handGeom.width) / 2)
 
@@ -738,7 +830,8 @@ function renderHoveredCards(){
 		return
 	}
 	if(cardHovered['player'] && 
-		!((mouseX > cardHovered['player'].x - ((CARDMARGIN/2)+BORDER) && mouseX < cardHovered['player'].x + cardHovered['player'].width) + ((CARDMARGIN/2)+BORDER)  && 
+		!((mouseX > cardHovered['player'].x - ((CARDMARGIN/2)+BORDER) &&
+		 mouseX < cardHovered['player'].x + cardHovered['player'].width) + ((CARDMARGIN/2)+BORDER)  && 
 		(mouseY > cardHovered['player'].y && mouseY < cardHovered['player'].y + cardHovered['player'].height)))
 	{
 		cardHovered['player'] = null
@@ -827,7 +920,8 @@ function animateHand(hand, handGeom, amountInHand){
 		if(!backToHand || (backToHand && hand[i] != backToHand)){
 			hand[i].curr = setGeom(hand[i].target.x, hand[i].target.y, hand[i].target.width, hand[i].target.height)
 		}
-		hand[i].target = setGeom(handGeom.x+(i * cardGeom.width)+(i*CARDMARGIN*BORDER), handGeom.y, cardGeom.width, cardGeom.height)  
+		hand[i].target = setGeom(handGeom.x+(i * CARDWIDTH)+(i*CARDMARGIN*BORDER),
+			handGeom.y, CARDWIDTH, CARDHEIGHT)  
 	}
 }
 
@@ -848,7 +942,8 @@ function animateCardToHand(hand, section, amountInHand, toHandAnim){
 	if(amountInHand == hand.length){
 		return amountInHand
 	}
-	hand[amountInHand].target = setGeom(handGeom.x+(amountInHand * cardGeom.width), handGeom.y, cardGeom.width, cardGeom.height)
+	hand[amountInHand].target = setGeom(handGeom.x+(amountInHand * CARDWIDTH),
+		handGeom.y, CARDWIDTH, CARDHEIGHT)
 	hand[amountInHand].anim = toHandAnim
 
 	return amountInHand
@@ -908,7 +1003,7 @@ function renderAllCards(){
 			fill(color(card.borderColor))
 		}
 		
-		rect(lerpX - BORDER, lerpY - BORDER, cardGeom.width + 2 * BORDER, cardGeom.height + 2 * BORDER, CORNER);
+		rect(lerpX - BORDER, lerpY - BORDER, CARDWIDTH + 2 * BORDER, CARDHEIGHT + 2 * BORDER, CORNER);
 
 		image(images[0], lerpX, lerpY)
 		noTint()
