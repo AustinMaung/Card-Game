@@ -95,23 +95,24 @@ let selectCardButtonText = "Select"
 let lockedIn = false
 let prio = ''
 
-function imageLoaded() {
-	countLoaded ++
-	if(countLoaded == 1){
-		isLoading = false
-	}
-}
+function imageLoaded(img) {
+	images.push(img)
+	zoomedImages.push(1)
 
-function preload(){
-	images.push(loadImage("static/images/test-image.png", imageLoaded))
-	for(let i = images.length; i > 0; i--){
-		zoomedImages.push(1)
+	countLoaded++
+
+	if (countLoaded === 1) {
+		isLoading = false
 	}
 }
 
 function setup() {
 	createCanvas(windowWidth, windowHeight)
 	setDataDerivedFromScreenSize()
+
+	loadImage("static/images/test-image.png", function (img) {
+		imageLoaded(img);
+	});
 
 	let zoomed = {...cardTemplate}
 	zoomed.curr = setGeom(rightEdge, sectionFour-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
@@ -396,6 +397,7 @@ function setDataDerivedFromScreenSize() {
 
 function draw() {
 	background(0)
+
 	if(scenes["game"] && isLoading){
 		textSize(16)
 		fill(color('white'))
@@ -421,7 +423,10 @@ function draw() {
 
 		drawCarousel()
 
-		if(!draggedCard && didTimeFinish(playerToHandAnim)){
+		if((!draggedCard && !isMobile && didTimeFinish(playerToHandAnim)) || 
+			(isMobile && canHover && didTimeFinish(playerToHandAnim)))
+		{
+			findHoveredCard()
 			renderHoveredCards()
 		} 
 
@@ -586,15 +591,13 @@ function drawCarousel(){
 	})
 }
 
+
+
 let storeCarousel = []
 let enableClickCarousel = false
 let cardsClicked = []
 let amountCanClick = 0
 function mouseClicked(){
-	// if(isMobile){
-	// 	return
-	// }
-
 	if(scenes["game"]){
 		if(mouseX > playCardButton.x &&
 			mouseX < playCardButton.x + playCardButton.width &&
@@ -630,6 +633,7 @@ function mouseClicked(){
 			cardsClicked.forEach((card)=>{card.borderColor = 'white'})
 			cardsClicked = []
 			selectCardButtonText = "Select"
+			cardHovered['player'] = null
 			return
 		} else if(enableSelectButton){
 			selectCardButtonText = "Browse"
@@ -730,6 +734,10 @@ let canDragCarousel = false
 let startMouseX = 0
 let storeMouseWheelCurrent = 0
 function mousePressed(){
+	if(isMobile){
+		return
+	}
+
 	if(!lockedIn && carousel.length == 0 && !enableSelectButton){
 		if(!almostPlay['player']){
 			hand["player"].forEach((card)=>{
@@ -739,6 +747,7 @@ function mousePressed(){
 					mouseY < card.curr.y + card.curr.height)
 				{
 					draggedCard = card
+					print('set dragged card')
 				}
 			})
 		} else if(almostPlay['player']){
@@ -758,12 +767,11 @@ function mousePressed(){
 }
 
 function mouseDragged(){
-	// || 
-			// (isMobile && (mouseX < findHandGeom(hand['player'].length, sectionFour).x ||
-			// mouseX > findHandGeom(hand['player'].length, sectionFour).x + findHandGeom(hand['player'].length, sectionFour).width ||
-			// mouseY < findHandGeom(hand['player'].length, sectionFour).y ||
-			// mouseY > findHandGeom(hand['player'].length, sectionFour).y + findHandGeom(hand['player'].length, sectionFour).height))
-	if(draggedCard )
+	if(isMobile){
+		return
+	}
+
+	if(draggedCard)
 	{
 		draggedCard.curr.x = mouseX - (CARDWIDTH/2)
 		draggedCard.curr.y = mouseY - (CARDHEIGHT/2)
@@ -781,6 +789,10 @@ function mouseDragged(){
 
 let backToHand = null
 function mouseReleased(){
+	if(isMobile){
+		return
+	}
+
 	socket.emit('player-hover', -1)
 	canDragCarousel = false
 	startMouseX = 0
@@ -823,8 +835,156 @@ function mouseReleased(){
 	cardHovered['player'] = null
 }
 
+let isHandTouched = false
 function touchStarted(){
 	isMobile = true
+
+	if(mouseX > selectCardButton.x &&
+			mouseX < selectCardButton.x + selectCardButton.width &&
+			mouseY > selectCardButton.y && 
+			mouseY < selectCardButton.y + selectCardButton.height &&
+			enableSelectButton)
+	{
+		cardHovered['player'] = null
+		return
+	}
+
+	hand["player"].forEach((card)=>{
+		if(card && mouseX > card.curr.x-CARDMARGIN-BORDER && 
+			mouseX < card.curr.x-CARDMARGIN-BORDER + card.curr.width+2*CARDMARGIN+2*BORDER && 
+			mouseY > card.curr.y-CARDMARGIN-BORDER && 
+			mouseY < card.curr.y-CARDMARGIN-BORDER + card.curr.height+2*CARDMARGIN+2*BORDER &&
+			!(enableSelectButton && selectCardButtonText == 'Select'))
+		{	
+			cardHovered['player'] = card
+			isHandTouched = true
+		} 
+	})
+
+	if(!isHandTouched){
+		cardHovered['player'] = null
+	}
+
+	if(selectCardButtonText == 'Select'){
+		return
+	}
+	let cards = [almostPlay['player'], almostPlay['opponent'], play['player'], play['opponent']]
+	cards.forEach((card)=>{
+		if(card){
+			if(mouseX > card.curr.x && 
+				mouseX < card.curr.x + card.curr.width && 
+				mouseY > card.curr.y && 
+				mouseY < card.curr.y + card.curr.height)
+			{
+				cardHovered['player'] = card
+				draggedCard = card
+			}
+		}
+	})
+
+	if(recordMouseWheel){
+		canDragCarousel = true
+		startMouseX = mouseX
+		storeMouseWheelCurrent = mouseWheelCurrent
+	}
+}
+
+let canHover = true
+let isHandStillTouched = false
+function touchMoved(event){
+	if(isHandTouched && canHover && carousel.length == 0 && 
+		!(enableSelectButton && selectCardButtonText == 'Select'))
+	{
+		let touchedCard = false
+		hand["player"].forEach((card)=>{
+			if(card && mouseX > card.curr.x-CARDMARGIN-BORDER && 
+				mouseX < card.curr.x-CARDMARGIN-BORDER + card.curr.width+2*CARDMARGIN+2*BORDER && 
+				mouseY > card.curr.y-CARDMARGIN-BORDER && 
+				mouseY < card.curr.y-CARDMARGIN-BORDER + card.curr.height+2*CARDMARGIN+2*BORDER)
+			{	
+				draggedCard = card
+				touchedCard = true
+			} 
+		})
+
+		if(touchedCard){
+			isHandStillTouched = true
+		} else {
+			isHandStillTouched = false
+		}
+	} else if(canDragCarousel){
+		let enlargedGeom = enlargeCard(carousel[0], HOVERSCALE)
+		if(storeMouseWheelCurrent - startMouseX + mouseX > -mouseWheelMax*0.5 + enlargedGeom.width/2 &&
+			(storeMouseWheelCurrent - startMouseX + mouseX < mouseWheelMax*0.5 - enlargedGeom.width/2))
+		{
+			mouseWheelCurrent = storeMouseWheelCurrent - startMouseX + mouseX
+		}
+	}
+
+	if(canHover || almostPlay['player'] == draggedCard){
+		cardHovered['player'] = draggedCard
+	}
+	if((isHandTouched && !isHandStillTouched && draggedCard != null && !almostPlay['player'] && !enableSelectButton) ||
+		(draggedCard && draggedCard == almostPlay['player'] && !lockedIn))
+	{
+		draggedCard.curr.x = mouseX - (CARDWIDTH/2)
+		draggedCard.curr.y = mouseY - (CARDHEIGHT/2)
+
+		draggedCard.target = {...draggedCard.curr}
+
+		canHover = false
+		cardHovered['player'] = null
+	}
+}
+
+function touchEnded(){
+	if(isHandStillTouched){
+		cardHovered['player'] = null
+	}
+
+	isHandTouched = false
+	canHover = true
+	isHandStillTouched = false
+
+	socket.emit('player-hover', -1)
+	canDragCarousel = false
+	startMouseX = 0
+	
+	if(!draggedCard){
+		return
+	}
+
+	backToHand = null
+	if(hand["player"].includes(draggedCard) && !almostPlay["player"]){
+		if(mouseY <= sectionThree){
+			let idx = hand['player'].findIndex(element => element === draggedCard)
+			hand['player'].splice(idx, 1)
+
+			amountInHand["player"] -= 1
+
+			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
+			almostPlay["player"] = draggedCard
+		
+			socket.emit('almost-play', idx)
+		}
+		else {
+			backToHand = draggedCard
+			resetTime(playerToHandAnim)	
+		}
+	} else if(draggedCard == almostPlay['player'] && !lockedIn){
+		if(mouseY > sectionThree){
+			hand['player'].push(draggedCard)
+			resetTime(playerToHandAnim)
+
+			almostPlay["player"] = null
+
+			socket.emit('took-back')
+		} else {
+			animateCard(draggedCard, toPlayAnim, almostPlayerPlayZone)
+		}
+	}
+	
+	draggedCard = null
 }
 
 function initGeom() {
@@ -849,13 +1009,11 @@ function setGeom(x, y, w, h) {
 function findHandGeom(handCount, section) {
 	let handGeom = initGeom()
 
-	handGeom.y = section
+	handGeom.y = section-CARDHEIGHT/2
 	handGeom.width = min(handCount*CARDWIDTH + handCount*(BORDER+CARDMARGIN), gameWidth)
-	handGeom.height = CARDHEIGHT
+	handGeom.height = CARDHEIGHT+2*BORDER+2*CARDMARGIN
 
-	// handGeom.x = Math.floor((canvasWidth-handGeom.width) / 2)
 	handGeom.x = canvasWidth/2-handGeom.width/2
-	// console.log(handGeom.x)
 
 	return handGeom
 }
@@ -881,7 +1039,25 @@ function enlargeCard(card, scale){
 }
 
 function renderHoveredCards(){
-	if(carousel.length > 0){
+	if(cardHovered['player']){
+		noStroke()
+		fill(color(cardHovered['player'].borderColor))
+		rect(enlargeCard(cardHovered['player'], HOVERSCALE).x-BORDER, enlargeCard(cardHovered['player'], 
+			HOVERSCALE).y-BORDER, enlargeCard(cardHovered['player'], HOVERSCALE).width+2*BORDER, 
+			enlargeCard(cardHovered['player'], HOVERSCALE).height+2*BORDER, CORNER)
+		image(zoomedImages[0], enlargeCard(cardHovered['player'], HOVERSCALE).x, enlargeCard(cardHovered['player'], HOVERSCALE).y)
+	} else if(cardHovered['opponent']){
+		noStroke()
+		fill(color(cardHovered['opponent'].borderColor))
+		rect(enlargeCard(cardHovered['opponent'], HOVERSCALE).x-BORDER, enlargeCard(cardHovered['opponent'], 
+			HOVERSCALE).y-BORDER, enlargeCard(cardHovered['opponent'], HOVERSCALE).width+2*BORDER, 
+			enlargeCard(cardHovered['opponent'], HOVERSCALE).height+2*BORDER, CORNER)
+		image(zoomedImages[0], enlargeCard(cardHovered['opponent'], HOVERSCALE).x, enlargeCard(cardHovered['opponent'], HOVERSCALE).y)
+	}	
+}
+
+function findHoveredCard(){
+	if(carousel.length > 0 || isMobile){
 		return
 	}
 	if(cardHovered['player'] && 
@@ -910,26 +1086,11 @@ function renderHoveredCards(){
 	}
 
 	if(cardHovered['player']){
-		noStroke()
-		fill(color(cardHovered['player'].borderColor))
-		rect(enlargeCard(cardHovered['player'], HOVERSCALE).x-BORDER, enlargeCard(cardHovered['player'], 
-			HOVERSCALE).y-BORDER, enlargeCard(cardHovered['player'], HOVERSCALE).width+2*BORDER, 
-			enlargeCard(cardHovered['player'], HOVERSCALE).height+2*BORDER, CORNER)
-		image(zoomedImages[0], enlargeCard(cardHovered['player'], HOVERSCALE).x, enlargeCard(cardHovered['player'], HOVERSCALE).y)
-	
 		let idx = hand['player'].findIndex(element => element === cardHovered['player'])
 		socket.emit('player-hover', idx)
 	} else {
 		socket.emit('player-hover', -1)
 	}
-	if(cardHovered['opponent']){
-		noStroke()
-		fill(color(cardHovered['opponent'].borderColor))
-		rect(enlargeCard(cardHovered['opponent'], HOVERSCALE).x-BORDER, enlargeCard(cardHovered['opponent'], 
-			HOVERSCALE).y-BORDER, enlargeCard(cardHovered['opponent'], HOVERSCALE).width+2*BORDER, 
-			enlargeCard(cardHovered['opponent'], HOVERSCALE).height+2*BORDER, CORNER)
-		image(zoomedImages[0], enlargeCard(cardHovered['opponent'], HOVERSCALE).x, enlargeCard(cardHovered['opponent'], HOVERSCALE).y)
-	}	
 }
 
 function initTime(duration){
@@ -976,7 +1137,7 @@ function animateHand(hand, handGeom, amountInHand){
 			hand[i].curr = setGeom(hand[i].target.x, hand[i].target.y, hand[i].target.width, hand[i].target.height)
 		} 
 		hand[i].target = setGeom(max(handGeom.x+(i/amountInHand*handGeom.width), 1),
-			handGeom.y, CARDWIDTH, CARDHEIGHT)
+			handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 	}
 }
 
