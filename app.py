@@ -52,16 +52,15 @@ def enter_room(key):
 @sio.on('create-room')
 def create_room():
 	key = ''.join(random.choice('0123456789') for _ in range(4))
+	while key in rooms_to_clients:
+		key = ''.join(random.choice('0123456789') for _ in range(4))
 
 	join_room(key)
 
 	clients_to_rooms[request.sid] = key
-	if key in rooms_to_clients:
-		sio.emit('join-room-failure', room=request.sid)
-	else:
-		rooms_to_clients[key] = [request.sid]
-		
-		sio.emit('join-room-success', key, room=request.sid)
+	rooms_to_clients[key] = [request.sid]
+	
+	sio.emit('join-room-success', key, room=request.sid)
 
 def exit_room(client):
 	sio.emit('join-room-failure', room=client)

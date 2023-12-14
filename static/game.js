@@ -23,6 +23,9 @@ let CORNER = 5
 let CARDMARGIN = 3
 let CARDWIDTH = 80
 let CARDHEIGHT = (CARDWIDTH*3)/2
+let isLoading = true
+let countLoaded = 0
+let isMobile = false
 
 let sectionOne = initGeom()
 let sectionTwo = initGeom()
@@ -92,8 +95,15 @@ let selectCardButtonText = "Select"
 let lockedIn = false
 let prio = ''
 
+function imageLoaded() {
+	countLoaded ++
+	if(countLoaded == 1){
+		isLoading = false
+	}
+}
+
 function preload(){
-	images.push(loadImage("static/images/test-image.png"))
+	images.push(loadImage("static/images/test-image.png", imageLoaded))
 	for(let i = images.length; i > 0; i--){
 		zoomedImages.push(1)
 	}
@@ -249,6 +259,8 @@ function setup() {
 	let roomKeyText = createP('Room Key:')
 	roomKeyText.style('color', 'white')
 	let goBackButton = createButton("Go Back")
+	let fullscreenCheckbox = createCheckbox('fullscreen')
+	fullscreenCheckbox.style('color', 'white')
 	let goBackDiv = createDiv()
 	goBackDiv.child(roomKeyText)
 	goBackDiv.child(goBackButton)
@@ -259,6 +271,7 @@ function setup() {
 	joinRoomContainer.child(joinRoomInput)
 	joinRoomContainer.child(joinRoomButton)
 	htmlElemContainer.child(joinRoomContainer)
+	htmlElemContainer.child(fullscreenCheckbox)
 	htmlElemContainer.child(createRoomDiv)
 	htmlElemContainer.child(goBackDiv)
 
@@ -276,6 +289,12 @@ function setup() {
 		}
 		socket.emit('enter-room', joinRoomInput.value())
 		joinRoomInput.elt.value = ''
+
+		if(fullscreenCheckbox.checked()){
+			fullscreen(true)	
+		} else if(fullscreen()){
+			fullscreen(false)
+		}
 	})
 
 	joinRoomInput.elt.addEventListener('keydown', ()=>{
@@ -285,11 +304,23 @@ function setup() {
 			}
 			socket.emit('enter-room', joinRoomInput.value())
 			joinRoomInput.elt.value = ''
+
+			if(fullscreenCheckbox.checked()){
+				fullscreen(true)	
+			} else if(fullscreen()){
+				fullscreen(false)
+			}
 		}
 	})
 
 	createRoomButton.mousePressed(()=>{
 		socket.emit('create-room')
+
+		if(fullscreenCheckbox.checked()){
+			fullscreen(true)	
+		} else if(fullscreen()){
+			fullscreen(false)
+		}
 	})
 
 	goBackButton.mousePressed(()=>{
@@ -299,6 +330,7 @@ function setup() {
 	socket.on('join-room-success', (roomKey)=>{
 		createRoomDiv.style('display', 'none')
 		joinRoomContainer.style('display', 'none')
+		fullscreenCheckbox.style('display', 'none')
 
 		goBackDiv.style('display', 'flex')
 		goBackDiv.style('flex-direction', 'column')
@@ -312,6 +344,7 @@ function setup() {
 
 		createRoomDiv.style('display', 'block')
 		joinRoomContainer.style('display', 'block')
+		fullscreenCheckbox.style('display', 'block')
 	})
 
 	socket.on('start-game', ()=>{
@@ -363,7 +396,13 @@ function setDataDerivedFromScreenSize() {
 
 function draw() {
 	background(0)
-	if(scenes["game"]){
+	if(scenes["game"] && isLoading){
+		textSize(16)
+		fill(color('white'))
+		textAlign(CENTER, CENTER);
+		text('Loading', canvasWidth/2, canvasHeight/2)
+		noStroke()
+	} else if(scenes["game"]){
 
 		fill(color("white"))
 		// //player deck
@@ -552,6 +591,10 @@ let enableClickCarousel = false
 let cardsClicked = []
 let amountCanClick = 0
 function mouseClicked(){
+	// if(isMobile){
+	// 	return
+	// }
+
 	if(scenes["game"]){
 		if(mouseX > playCardButton.x &&
 			mouseX < playCardButton.x + playCardButton.width &&
@@ -715,7 +758,13 @@ function mousePressed(){
 }
 
 function mouseDragged(){
-	if(draggedCard){
+	// || 
+			// (isMobile && (mouseX < findHandGeom(hand['player'].length, sectionFour).x ||
+			// mouseX > findHandGeom(hand['player'].length, sectionFour).x + findHandGeom(hand['player'].length, sectionFour).width ||
+			// mouseY < findHandGeom(hand['player'].length, sectionFour).y ||
+			// mouseY > findHandGeom(hand['player'].length, sectionFour).y + findHandGeom(hand['player'].length, sectionFour).height))
+	if(draggedCard )
+	{
 		draggedCard.curr.x = mouseX - (CARDWIDTH/2)
 		draggedCard.curr.y = mouseY - (CARDHEIGHT/2)
 
@@ -742,7 +791,7 @@ function mouseReleased(){
 
 	backToHand = null
 	if(hand["player"].includes(draggedCard) && !almostPlay["player"]){
-		if(mouseY < sectionThree){
+		if(mouseY <= sectionThree){
 			let idx = hand['player'].findIndex(element => element === draggedCard)
 			hand['player'].splice(idx, 1)
 
@@ -758,7 +807,7 @@ function mouseReleased(){
 			resetTime(playerToHandAnim)	
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
-		if(mouseY > sectionThree + CARDHEIGHT/2){
+		if(mouseY > sectionThree){
 			hand['player'].push(draggedCard)
 			resetTime(playerToHandAnim)
 
@@ -772,6 +821,10 @@ function mouseReleased(){
 	
 	draggedCard = null
 	cardHovered['player'] = null
+}
+
+function touchStarted(){
+	isMobile = true
 }
 
 function initGeom() {
@@ -797,10 +850,12 @@ function findHandGeom(handCount, section) {
 	let handGeom = initGeom()
 
 	handGeom.y = section
-	handGeom.width = handCount * CARDWIDTH + handCount * (BORDER+CARDMARGIN)
+	handGeom.width = min(handCount*CARDWIDTH + handCount*(BORDER+CARDMARGIN), gameWidth)
 	handGeom.height = CARDHEIGHT
 
-	handGeom.x = Math.floor((canvasWidth - handGeom.width) / 2)
+	// handGeom.x = Math.floor((canvasWidth-handGeom.width) / 2)
+	handGeom.x = canvasWidth/2-handGeom.width/2
+	// console.log(handGeom.x)
 
 	return handGeom
 }
@@ -919,9 +974,9 @@ function animateHand(hand, handGeom, amountInHand){
 	for(let i = 0; i < amountInHand; i++){
 		if(!backToHand || (backToHand && hand[i] != backToHand)){
 			hand[i].curr = setGeom(hand[i].target.x, hand[i].target.y, hand[i].target.width, hand[i].target.height)
-		}
-		hand[i].target = setGeom(handGeom.x+(i * CARDWIDTH)+(i*CARDMARGIN*BORDER),
-			handGeom.y, CARDWIDTH, CARDHEIGHT)  
+		} 
+		hand[i].target = setGeom(max(handGeom.x+(i/amountInHand*handGeom.width), 1),
+			handGeom.y, CARDWIDTH, CARDHEIGHT)
 	}
 }
 
@@ -931,15 +986,10 @@ function animateCardToHand(hand, section, amountInHand, toHandAnim){
 		amountInHand += 1
 	}
 
-	let handGeom = findHandGeom(amountInHand+1, section)
-
-	if(amountInHand == hand.length){
-		handGeom = findHandGeom(amountInHand, section)
-	}
-
+	let handGeom = findHandGeom(amountInHand, section)
 	animateHand(hand, handGeom, amountInHand)
 
-	if(amountInHand == hand.length){
+	if(amountInHand == hand.length || !hand[amountInHand]){
 		return amountInHand
 	}
 	hand[amountInHand].target = setGeom(handGeom.x+(amountInHand * CARDWIDTH),
@@ -994,7 +1044,10 @@ function renderAllCards(){
 			card = updatePosAfterAnim(card)
 		}
 
-		if(almostPlay['player'] == card || almostPlay['opponent'] == card){
+		if((almostPlay['player'] == card && draggedCard != card) || 
+			almostPlay['opponent'] == card ||
+			(draggedCard == card && mouseY < sectionThree) )
+		{
 			tint(255, 128)
 			let translucentBackground = color(card.borderColor)
 			translucentBackground.setAlpha(128)
