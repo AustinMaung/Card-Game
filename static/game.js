@@ -96,13 +96,19 @@ let lockedIn = false
 let prio = ''
 
 function imageLoaded(img) {
-	images.push(img)
-	zoomedImages.push(1)
+	img = getImage(img, CARDWIDTH, CARDHEIGHT);
 
-	countLoaded++
+	let zoomed = { ...cardTemplate };
+	zoomed.curr = setGeom(rightEdge, sectionFour - CARDHEIGHT / 2, CARDWIDTH, CARDHEIGHT);
+	let enlargedCard = enlargeCard(zoomed, HOVERSCALE);
+	let zoomedImage = getImage(img, enlargedCard.width, enlargedCard.height);
 
+	images.push(img);
+	zoomedImages.push(zoomedImage);
+
+	countLoaded++;
 	if (countLoaded === 1) {
-		isLoading = false
+		isLoading = false;
 	}
 }
 
@@ -114,13 +120,7 @@ function setup() {
 		imageLoaded(img);
 	});
 
-	let zoomed = {...cardTemplate}
-	zoomed.curr = setGeom(rightEdge, sectionFour-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
-
-	for(let i = 0; i < images.length; i++){
-		images[i] = getImage(images[i], CARDWIDTH, CARDHEIGHT)
-		zoomedImages[i] = getImage(images[i], enlargeCard((zoomed), HOVERSCALE).width, enlargeCard((zoomed), HOVERSCALE).height)
-	}
+	
 
 	socket = io()
 	
