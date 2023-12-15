@@ -116,11 +116,9 @@ function setup() {
 	createCanvas(windowWidth, windowHeight)
 	setDataDerivedFromScreenSize()
 
-	loadImage("static/images/test-image.png", function (img) {
+	loadImage("static/images/test-image.png", (img)=>{
 		imageLoaded(img);
 	});
-
-	
 
 	socket = io()
 	
@@ -894,12 +892,16 @@ function touchMoved(event){
 		!(enableSelectButton && selectCardButtonText == 'Select'))
 	{
 		let touchedCard = false
-		hand["player"].forEach((card)=>{
+		hand["player"].forEach((card, idx)=>{
 			if(card && mouseX > card.curr.x-CARDMARGIN-BORDER && 
 				mouseX < card.curr.x-CARDMARGIN-BORDER + card.curr.width+2*CARDMARGIN+2*BORDER && 
 				mouseY > card.curr.y-CARDMARGIN-BORDER && 
 				mouseY < card.curr.y-CARDMARGIN-BORDER + card.curr.height+2*CARDMARGIN+2*BORDER)
 			{	
+				if(draggedCard != card){
+					socket.emit('player-hover', idx)
+				}
+
 				draggedCard = card
 				touchedCard = true
 			} 
