@@ -819,7 +819,7 @@ function mouseReleased(){
 			resetTime(playerToHandAnim)	
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
-		if(mouseY > sectionThree){
+		if(mouseY > sectionThree+CARDHEIGHT/2){
 			hand['player'].push(draggedCard)
 			resetTime(playerToHandAnim)
 
@@ -865,19 +865,17 @@ function touchStarted(){
 		cardHovered['player'] = null
 	}
 
-	if(selectCardButtonText == 'Select'){
-		return
-	}
 	let cards = [almostPlay['player'], almostPlay['opponent'], play['player'], play['opponent']]
 	cards.forEach((card)=>{
-		if(card){
-			if(mouseX > card.curr.x && 
-				mouseX < card.curr.x + card.curr.width && 
-				mouseY > card.curr.y && 
-				mouseY < card.curr.y + card.curr.height)
-			{
-				cardHovered['player'] = card
+		if(card && (mouseX > card.curr.x && 
+			mouseX < card.curr.x + card.curr.width && 
+			mouseY > card.curr.y && 
+			mouseY < card.curr.y + card.curr.height))
+		{
+			 // && !play['player'] == card && !play['opponent'] == card
+			if(!enableSelectButton || selectCardButtonText != 'Select'){
 				draggedCard = card
+				cardHovered['player'] = card
 			}
 		}
 	})
@@ -924,7 +922,8 @@ function touchMoved(event){
 	if(canHover || almostPlay['player'] == draggedCard){
 		cardHovered['player'] = draggedCard
 	}
-	if((isHandTouched && !isHandStillTouched && draggedCard != null && !almostPlay['player'] && !enableSelectButton) ||
+	
+	if((isHandTouched && !isHandStillTouched && draggedCard != null && !almostPlay['player'] && prio == '') ||
 		(draggedCard && draggedCard == almostPlay['player'] && !lockedIn))
 	{
 		draggedCard.curr.x = mouseX - (CARDWIDTH/2)
@@ -955,7 +954,7 @@ function touchEnded(){
 	}
 
 	backToHand = null
-	if(hand["player"].includes(draggedCard) && !almostPlay["player"]){
+	if(hand["player"].includes(draggedCard) && !almostPlay["player"] && !lockedIn){
 		if(mouseY <= sectionThree){
 			let idx = hand['player'].findIndex(element => element === draggedCard)
 			hand['player'].splice(idx, 1)
@@ -972,7 +971,7 @@ function touchEnded(){
 			resetTime(playerToHandAnim)	
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
-		if(mouseY > sectionThree){
+		if(mouseY > sectionThree+CARDHEIGHT/2+BORDER){
 			hand['player'].push(draggedCard)
 			resetTime(playerToHandAnim)
 
@@ -1207,7 +1206,8 @@ function renderAllCards(){
 
 		if((almostPlay['player'] == card && draggedCard != card) || 
 			almostPlay['opponent'] == card ||
-			(draggedCard == card && mouseY < sectionThree) )
+			(almostPlay['player'] == card && draggedCard == card && mouseY < sectionThree + CARDHEIGHT/2) ||
+			(draggedCard == card && mouseY < sectionThree))
 		{
 			tint(255, 128)
 			let translucentBackground = color(card.borderColor)
