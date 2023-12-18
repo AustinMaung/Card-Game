@@ -151,7 +151,6 @@ function setup() {
 
 	socket.on('opponent-took-back', ()=>{
 		hand['opponent'].push(almostPlay['opponent'])
-		resetTime(opponentToHandAnim)
 
 		almostPlay["opponent"] = null
 	})
@@ -403,6 +402,14 @@ function draw() {
 		text('Loading', canvasWidth/2, canvasHeight/2)
 		noStroke()
 	} else if(scenes["game"]){
+		updateTime(playerToHandAnim)
+		updateTime(opponentToHandAnim)
+		if(didTimeFinish(playerToHandAnim) && didTimeFinish(opponentToHandAnim)){
+			updateTime(toDropAnim)
+		}
+		if(didTimeFinish(toDropAnim)){
+			updateTime(toPlayAnim)
+		}
 
 		fill(color("white"))
 		// //player deck
@@ -410,13 +417,6 @@ function draw() {
 		// //opponent deck
 		rect(leftEdge, sectionTwo-CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 
-		if(!draggedCard){
-			amountInHand["player"] = animateCardToHand(hand["player"], 
-				sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
-		}
-		
-		amountInHand["opponent"] = animateCardToHand(hand["opponent"], 
-			sectionOne-CARDHEIGHT/2, amountInHand["opponent"], opponentToHandAnim)
 		renderAllCards()
 
 		drawCarousel()
@@ -427,14 +427,20 @@ function draw() {
 			findHoveredCard()
 			renderHoveredCards()
 		} 
+		
+		if(didTimeFinish(playerToHandAnim) && amountInHand['player'] < hand['player'].length){
+			resetTime(playerToHandAnim)
+			amountInHand['player'] ++
 
-		updateTime(playerToHandAnim)
-		updateTime(opponentToHandAnim)
-		if(didTimeFinish(playerToHandAnim) && didTimeFinish(opponentToHandAnim)){
-			updateTime(toDropAnim)
+			if(!draggedCard){
+				animateCardToHand(hand["player"], sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
+			}
 		}
-		if(didTimeFinish(toDropAnim)){
-			updateTime(toPlayAnim)
+		if(didTimeFinish(opponentToHandAnim) && amountInHand['opponent'] < hand['opponent'].length){
+			resetTime(opponentToHandAnim)
+			amountInHand['opponent'] ++
+
+			animateCardToHand(hand["opponent"], sectionOne-CARDHEIGHT/2, amountInHand["opponent"], opponentToHandAnim, true)
 		}
 
 		//ready button
@@ -745,7 +751,6 @@ function mousePressed(){
 					mouseY < card.curr.y + card.curr.height)
 				{
 					draggedCard = card
-					print('set dragged card')
 				}
 			})
 		} else if(almostPlay['player']){
@@ -813,13 +818,12 @@ function mouseReleased(){
 			socket.emit('almost-play', idx)
 		}
 		else {
-			backToHand = draggedCard
-			resetTime(playerToHandAnim)	
+			animateCardToHand(hand["player"], sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
 		if(mouseY > sectionThree+CARDHEIGHT/2){
 			hand['player'].push(draggedCard)
-			resetTime(playerToHandAnim)
+			animateCardToHand(hand["player"], sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
 
 			almostPlay["player"] = null
 
@@ -1132,38 +1136,29 @@ function getLerpValue(time){
 	return time.value/time.duration
 }
 
-function animateHand(hand, handGeom, amountInHand){
-	for(let i = 0; i < amountInHand; i++){
-		if(!backToHand || (backToHand && hand[i] != backToHand)){
-			hand[i].curr = setGeom(hand[i].target.x, hand[i].target.y, hand[i].target.width, hand[i].target.height)
-		} 
-		hand[i].target = setGeom(max(handGeom.x+(i/amountInHand*handGeom.width), 1),
-			handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
-	}
-}
-
-function animateCardToHand(hand, section, amountInHand, toHandAnim){
-	if(didTimeFinish(toHandAnim) && amountInHand < hand.length){
-		toHandAnim = resetTime(toHandAnim)
-		amountInHand += 1
-	}
-
+function animateCardToHand(hand, section, amountInHand, toHandAnim, backwards){
 	let handGeom = findHandGeom(amountInHand, section)
-	animateHand(hand, handGeom, amountInHand)
-
-	if(amountInHand == hand.length || !hand[amountInHand]){
-		return amountInHand
+	
+	if(backwards){
+		if(amountInHand-1 < 0){
+			return
+		}
+		for(let i = amountInHand-1; i >= 0; i--){
+			hand[i].target = setGeom(max(handGeom.x+handGeom.width-(i/amountInHand*handGeom.width)-CARDWIDTH, 1),
+				handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+		}
+	} else {
+		for(let i = 0; i < amountInHand; i++){
+			hand[i].target = setGeom(max(handGeom.x+(i/amountInHand*handGeom.width), 1),
+				handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+		}
 	}
-	hand[amountInHand].target = setGeom(handGeom.x+(amountInHand * CARDWIDTH),
-		handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
-	hand[amountInHand].anim = toHandAnim
-
-	return amountInHand
+	
+	hand[amountInHand-1].anim = toHandAnim
 }
 
 function animateCard(card, animation, location){
 	card.anim = resetTime(animation)
-
 	card.target = {...location}
 }
 
