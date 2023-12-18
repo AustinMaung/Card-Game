@@ -1155,7 +1155,7 @@ function animateCardToHand(hand, section, amountInHand, toHandAnim){
 		return amountInHand
 	}
 	hand[amountInHand].target = setGeom(handGeom.x+(amountInHand * CARDWIDTH),
-		handGeom.y, CARDWIDTH, CARDHEIGHT)
+		handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 	hand[amountInHand].anim = toHandAnim
 
 	return amountInHand
