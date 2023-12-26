@@ -819,6 +819,7 @@ function mouseReleased(){
 		}
 		else {
 			animateCardToHand(hand["player"], sectionFour-CARDHEIGHT/2, amountInHand["player"], playerToHandAnim)
+			resetTime(playerToHandAnim)
 		}
 	} else if(draggedCard == almostPlay['player'] && !lockedIn){
 		if(mouseY > sectionThree+CARDHEIGHT/2){
@@ -1139,18 +1140,13 @@ function getLerpValue(time){
 function animateCardToHand(hand, section, amountInHand, toHandAnim, backwards){
 	let handGeom = findHandGeom(amountInHand, section)
 	
-	if(backwards){
-		if(amountInHand-1 < 0){
-			return
-		}
-		for(let i = amountInHand-1; i >= 0; i--){
+	for(let i = 0; i < amountInHand; i++){
+		if(backwards){
 			hand[i].target = setGeom(max(handGeom.x+handGeom.width-(i/amountInHand*handGeom.width)-CARDWIDTH, 1),
-				handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
-		}
-	} else {
-		for(let i = 0; i < amountInHand; i++){
+			handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+		} else {
 			hand[i].target = setGeom(max(handGeom.x+(i/amountInHand*handGeom.width), 1),
-				handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
+			handGeom.y+CARDHEIGHT/2, CARDWIDTH, CARDHEIGHT)
 		}
 	}
 	
