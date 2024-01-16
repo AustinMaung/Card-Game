@@ -2,6 +2,8 @@
 
 Welcome to the Multiplayer Card Game! This web-based card game allows users to play together in real-time using Web sockets.
 
+To try out a deployed version, you can find it here: https://abyss-ascendant.onrender.com/
+
 ## Hosting Information
 
 The game is currently hosted on Render, a platform that may spin down servers when not in use. Please be aware that there might be a noticeable delay when accessing the game if the server needs to spin up.
