@@ -4,11 +4,11 @@ import random
 from game import Card, GameLoop
 
 app = Flask(__name__)
-sio = SocketIO(app, cors_allowed_origins=['http://localhost:5000', 'https://abyss-ascendant.onrender.com'])
+sio = SocketIO(app, cors_allowed_origins=['http://localhost:5000', 'https://abyss-ascendant.onrender.com', 
+	'card-game-production-ba10.up.railway.app'])
 
 @app.route("/")
 def load_page():
-	# print('RENDERING WEBSITE')
 	return render_template("game.html")
 
 clients_to_games = {}
