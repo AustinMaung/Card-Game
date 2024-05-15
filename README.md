@@ -1,16 +1,38 @@
-# Multiplayer Card Game
+# Web-Based Card Game
 
-Welcome to the Multiplayer Card Game! This web-based card game allows users to play together in real-time using Web sockets.
+The Web-Based Card Game is a multiplayer card game prototype focusing on real-time gameplay. While the game currently lacks designated rules beyond the basic premise of players losing when they run out of cards, future development aims to refine the gameplay concept. The project showcases several key technologies to enable multiplayer functionality and smooth gameplay experience.
 
-To try out a deployed version, you can find it here: https://abyss-ascendant.onrender.com/
+## Features
 
-## Hosting Information
+- Real-time multiplayer gameplay.
+- WebSockets for synchronous gameplay across clients.
+- Backend logic implemented with Flask framework.
+- Frontend utilizing HTML, CSS, and JavaScript, with p5.js for canvas control.
 
-The game is currently hosted on Render, a platform that may spin down servers when not in use. Please be aware that there might be a noticeable delay when accessing the game if the server needs to spin up.
+## Known Issues
 
-## Usage
+1. **Loading Time**: The website takes a while to load due to cold start deployment.
+2. **Synchronization Challenges**: Maintaining synchronization between clients was difficult during development.
+3. **Smooth Interface**: Recreating game animations and UX to provide a seamless gameplay experience was challenging.
 
-To ensure the best experience, I recommend testing the application with two windows open side by side. This will allow you to observe the real-time interaction implemented using Web sockets.
+## How to Play
+
+1. Open the website.
+2. Wait for the game to load.
+3. Connect with other players.
+4. Start playing the card game.
+5. The player who runs out of cards loses.
+
+## Technologies Used
+
+- Flask
+- WebSockets
+- HTML, CSS, JavaScript
+- p5.js
+
+## Demo
+
+[Link to live demo](https://abyss-ascendant.onrender.com/)
 
 ## Getting Started
 
